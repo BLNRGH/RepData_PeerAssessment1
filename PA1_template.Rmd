@@ -1,25 +1,130 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+output: PA1_template.md
+html_document: PA1_template.html
+keep_md: true
 ---
-
 
 ## Loading and preprocessing the data
 
+```{r}
+# read in data
+data <- read.csv("activity.csv")
 
+# view data
+head(data)
+
+# view data types
+class(data$steps)
+class(data$date)
+class(data$interval)
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r, tidy=TRUE}
+# total number of steps per day
+totalStepsPerDay <- aggregate(steps ~ date, data = data, FUN = sum)
 
+# view data
+head(totalStepsPerDay)
+
+# histogram: total number of steps per day
+ggplot(totalStepsPerDay, aes(x = steps)) + geom_histogram(fill = "darkblue", binwidth = 1000)
+
+# histogram: total number of steps per day, other version
+# ggplot(totalStepsPerDay, aes(x = totalStepsPerDay$date, y = totalStepsPerDay$steps)) + geom_histogram(stat = "identity", fill = "darkblue") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + stat_smooth(aes(group = 1), method = "loess", color = "yellow2", size = 1) + xlab("day") + ylab("total number of steps")
+```
+
+```{r}
+# mean total number of steps per day
+mean(totalStepsPerDay$steps)
+```
+
+```{r}
+# median total number of steps per day
+median(totalStepsPerDay$steps)
+```
 
 ## What is the average daily activity pattern?
 
+```{r tidy=TRUE}
+# average number of steps per interval
+averageStepsPerInterval <- aggregate(steps ~ interval, data = data, FUN = mean)
 
+# time series: average number of steps per interval
+ggplot(averageStepsPerInterval, aes(x = averageStepsPerInterval$interval, y = averageStepsPerInterval$steps)) + geom_line(stat = "identity", col = "darkblue", size = 1) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + stat_smooth(aes(group = 1), method = "loess", color = "yellow2", size = 1) + xlab("interval") + ylab("mean number of steps")
+
+# interval with maximum number of steps
+averageStepsPerInterval[which.max(averageStepsPerInterval$steps),]$interval
+```
 
 ## Imputing missing values
 
+Description of a strategy for imputing missing data. 
 
+```{r}
+# total missing values
+# or: sum(is.na(data))
+# or NA's in: summary(data)
+sum(!complete.cases(data))
+```
+
+```{r}
+# check data before filling missing values
+summary(data)
+
+# positions of NA's
+naPos <- which(is.na(data$steps))
+
+# fill missing values with NA replacements (mean of steps)
+data[naPos, "steps"] <- rep(mean(data$steps, na.rm = TRUE), length(naPos))
+```
+
+```{r}
+# check data after filling missing values
+summary(data)
+
+# total number of steps per day
+totalStepsPerDayFilled <- aggregate(steps ~ date, data = data, FUN = sum)
+
+# histogram: total number of steps per day
+ggplot(totalStepsPerDayFilled, aes(x = steps)) + geom_histogram(fill = "darkblue", binwidth = 1000)
+
+# mean total number of steps per day
+mean(totalStepsPerDayFilled$steps)
+# with NA's: 10766.19
+```
+
+```{r}
+# median total number of steps per day
+median(totalStepsPerDayFilled$steps)
+# with NA's: 10765
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r tidy=TRUE}
+# convert to date
+data$date <- strptime(data$date, "%Y-%m-%d")
+data$weekday <- as.factor(weekdays(data$date))
+
+# add weekpart column
+data <- data %>% mutate(weekpart = ifelse(weekday == "Saturday" | weekday == "Sunday", "weekend", "weekday"))
+
+# view data
+head(data)
+
+# average number of steps per interval and weekpart
+averageStepsPerIntervalPerWeekpart <- aggregate(steps ~ interval + weekpart, data = data, mean)
+
+# add column names
+names(averageStepsPerIntervalPerWeekpart) <- c("interval", "weekpart", "steps")
+
+# view data
+head(averageStepsPerIntervalPerWeekpart)
+
+# time series: average number of steps per interval per weekpart
+ggplot(averageStepsPerIntervalPerWeekpart, aes(x = averageStepsPerIntervalPerWeekpart$interval, y = averageStepsPerIntervalPerWeekpart$steps)) + geom_line(stat = "identity", col = "darkblue", size = 1) + facet_grid(weekpart~.) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + stat_smooth(aes(group = 1), method = "loess", color = "yellow2", size = 1) + xlab("interval") + ylab("mean number of steps")
+```
+
